@@ -1,25 +1,77 @@
-import os
 """User-scoped endpoints (multi-tenant: only own data)."""
+import os
 from fastapi import APIRouter, HTTPException, Depends
 from datetime import datetime, timezone
 import uuid
 
 from auth import get_current_user
-from models import LeadCreate, LeadUpdate
+from models import AgentCreate, AgentUpdate, LeadCreate, LeadUpdate
+import vapi_client
 
 router = APIRouter(tags=["user"])
 
 
 # ----- Agents (READ ONLY — admin creates them) -----
+# ----- Agents -----
 @router.get("/agents")
-async def list_agents(user: dict = Depends(get_current_user)):
+async def list_my_agents(user: dict = Depends(get_current_user)):
     from server import db
-    if user.get("role") == "admin":
-        agents = await db.agents.find({}, {"_id": 0}).to_list(500)
-    else:
-        agents = await db.agents.find({"is_disabled": False}, {"_id": 0}).to_list(500)
+    agents = await db.agents.find({"owner_id": user["id"]}, {"_id": 0}).to_list(500)
     return agents
 
+
+@router.post("/agents")
+async def create_my_agent(payload: AgentCreate, user: dict = Depends(get_current_user)):
+    from server import db
+    vapi_id = await vapi_client.create_assistant(
+        name=payload.name,
+        first_message=payload.first_message,
+        system_prompt=payload.system_prompt,
+        voice=payload.voice,
+        model=payload.model,
+    )
+    doc = {
+        "id": str(uuid.uuid4()),
+        "owner_id": user["id"],
+        "name": payload.name,
+        "voice": payload.voice,
+        "model": payload.model,
+        "first_message": payload.first_message,
+        "system_prompt": payload.system_prompt,
+        "vapi_assistant_id": vapi_id,
+        "is_disabled": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.agents.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@router.patch("/agents/{agent_id}")
+async def update_my_agent(agent_id: str, payload: AgentUpdate, user: dict = Depends(get_current_user)):
+    from server import db
+    existing = await db.agents.find_one({"id": agent_id, "owner_id": user["id"]})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    update = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
+    if update:
+        await db.agents.update_one({"id": agent_id}, {"$set": update})
+        if existing.get("vapi_assistant_id"):
+            await vapi_client.update_assistant(existing["vapi_assistant_id"], **update)
+    doc = await db.agents.find_one({"id": agent_id}, {"_id": 0})
+    return doc
+
+
+@router.delete("/agents/{agent_id}")
+async def delete_my_agent(agent_id: str, user: dict = Depends(get_current_user)):
+    from server import db
+    existing = await db.agents.find_one({"id": agent_id, "owner_id": user["id"]})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    if existing.get("vapi_assistant_id"):
+        await vapi_client.delete_assistant(existing["vapi_assistant_id"])
+    await db.agents.delete_one({"id": agent_id})
+    return {"ok": True}
 
 # ----- Calls -----
 @router.get("/calls")
