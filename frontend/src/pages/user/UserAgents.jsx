@@ -358,14 +358,14 @@ export default function UserAgents() {
         }
       />
 
-      {!vapiPublicKey && (
+      {/* {!vapiPublicKey && (
         <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-700">
           <strong>In-browser calls disabled:</strong> Add{" "}
           <code className="bg-amber-100 px-1 rounded">VAPI_PUBLIC_KEY</code> and{" "}
           <code className="bg-amber-100 px-1 rounded">VAPI_API_KEY</code> to{" "}
           <code className="bg-amber-100 px-1 rounded">backend/.env</code>, then restart the backend.
         </div>
-      )}
+      )} */}
 
       <SectionCard title="Quick-Start Templates" subtitle="Deploy a pre-configured agent in one click">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
