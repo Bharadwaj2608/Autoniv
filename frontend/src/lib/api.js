@@ -8,7 +8,7 @@ export const VAPI_PUBLIC_KEY = process.env.REACT_APP_VAPI_PUBLIC_KEY || "";
 
 export const api = axios.create({
   baseURL: API,
-  withCredentials: true,
+  withCredentials: false,
 });
 
 export const BRAND = {
