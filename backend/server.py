@@ -48,10 +48,12 @@ api_router.include_router(user_router)
 api_router.include_router(appointment_router)
 api_router.include_router(vapi_router)
 
+# ✅ Fixed: allow_credentials=True + explicit origins (no wildcard with credentials)
+origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "https://autoniv-xi.vercel.app,http://localhost:3000").split(",")]
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=False,
-    allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
+    allow_credentials=True,
+    allow_origins=origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )

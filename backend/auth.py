@@ -50,15 +50,28 @@ def decode_token(token: str) -> dict:
 
 
 def set_auth_cookies(response, access: str, refresh: str):
-    response.set_cookie("access_token", access, httponly=True, secure=False,
-                        samesite="lax", max_age=12 * 3600, path="/")
-    response.set_cookie("refresh_token", refresh, httponly=True, secure=False,
-                        samesite="lax", max_age=7 * 24 * 3600, path="/")
+    # ✅ secure=True + samesite="none" required for cross-domain (Vercel → Railway)
+    response.set_cookie(
+        "access_token", access,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        max_age=12 * 3600,
+        path="/",
+    )
+    response.set_cookie(
+        "refresh_token", refresh,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        max_age=7 * 24 * 3600,
+        path="/",
+    )
 
 
 def clear_auth_cookies(response):
-    response.delete_cookie("access_token", path="/")
-    response.delete_cookie("refresh_token", path="/")
+    response.delete_cookie("access_token", path="/", secure=True, samesite="none")
+    response.delete_cookie("refresh_token", path="/", secure=True, samesite="none")
 
 
 def _extract_token(request: Request) -> Optional[str]:
