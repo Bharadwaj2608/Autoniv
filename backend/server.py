@@ -48,8 +48,6 @@ api_router.include_router(user_router)
 api_router.include_router(appointment_router)
 api_router.include_router(vapi_router)
 
-app.include_router(api_router)
-
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -57,6 +55,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(api_router)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
