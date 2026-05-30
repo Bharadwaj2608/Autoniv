@@ -4,26 +4,28 @@ import { api, formatApiError } from "@/lib/api";
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null); // null = loading, false = unauth, object = authed
+  const [user, setUser] = useState(null);
   const [error, setError] = useState("");
 
   const refreshMe = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) { setUser(false); return; }
     try {
       const { data } = await api.get("/auth/me");
       setUser(data);
     } catch {
+      localStorage.removeItem("token");
       setUser(false);
     }
   }, []);
 
-  useEffect(() => {
-    refreshMe();
-  }, [refreshMe]);
+  useEffect(() => { refreshMe(); }, [refreshMe]);
 
   const login = async (email, password) => {
     setError("");
     try {
       const { data } = await api.post("/auth/login", { email, password });
+      if (data.token) localStorage.setItem("token", data.token);
       setUser(data);
       return data;
     } catch (e) {
@@ -37,6 +39,7 @@ export function AuthProvider({ children }) {
     setError("");
     try {
       const { data } = await api.post("/auth/register", { name, email, password });
+      if (data.token) localStorage.setItem("token", data.token);
       setUser(data);
       return data;
     } catch (e) {
@@ -47,7 +50,8 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
-    try { await api.post("/auth/logout"); } catch { /* ignore */ }
+    try { await api.post("/auth/logout"); } catch {}
+    localStorage.removeItem("token");
     setUser(false);
   };
 
