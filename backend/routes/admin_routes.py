@@ -5,6 +5,7 @@ import uuid
 
 from auth import require_admin, hash_password
 from models import UserCreateAdmin, UserUpdate, Plan, PlanCreate, AgentCreate, AgentUpdate
+from exports import csv_response
 import vapi_client
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
@@ -179,6 +180,15 @@ async def list_all_calls():
     calls = await db.calls.find({}, {"_id": 0}).sort("started_at", -1).to_list(2000)
     return calls
 
+
+@router.get("/calls/export")
+async def export_all_calls():
+    from server import db
+    calls = await db.calls.find({}, {"_id": 0}).sort("started_at", -1).to_list(10000)
+    fields = ["started_at", "user_id", "agent_id", "customer_name", "caller_number",
+              "customer_email", "customer_address", "status", "duration_seconds",
+              "recording_url", "summary", "vapi_call_id"]
+    return csv_response(calls, fields, "all_calls.csv")
 
 # ----- Usage analytics -----
 @router.get("/usage")

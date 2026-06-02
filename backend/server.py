@@ -130,6 +130,8 @@ async def on_startup():
     await db.calls.create_index("vapi_call_id")
     await db.leads.create_index("user_id")
     await db.appointments.create_index("user_id")
+    await db.appointments.create_index("user_id")
+    await db.appointments.create_index("source_call_id")
     await seed_admin_and_demo()
 
 

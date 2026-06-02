@@ -4,13 +4,15 @@ import { BRAND } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, Users, Bot, PhoneCall, BarChart3, CreditCard,
-  Contact, LogOut, Activity, CalendarCheck, HelpCircle, PhoneIncoming,
+  Contact, LogOut, Activity, CalendarCheck, HelpCircle, PhoneIncoming, CalendarCheck2,
 } from "lucide-react";
 
 const adminNav = [
   { to: "/admin", label: "Overview", icon: LayoutDashboard, end: true },
   { to: "/admin/users", label: "Users", icon: Users },
   { to: "/admin/agents", label: "Agents", icon: Bot },
+  { to: "/app/leads", label: "Leads", icon: Contact },
+  { to: "/app/appointments", label: "Appointments", icon: CalendarCheck2 },
   { to: "/admin/calls", label: "Calls", icon: PhoneCall },
   { to: "/admin/usage", label: "Usage", icon: Activity },
   { to: "/admin/billing", label: "Billing", icon: CreditCard },

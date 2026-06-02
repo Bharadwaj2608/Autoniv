@@ -5,8 +5,10 @@ from datetime import datetime, timezone
 import uuid
 
 from auth import get_current_user
-from models import AgentCreate, AgentUpdate, LeadCreate, LeadUpdate
+from models import AgentCreate, AgentUpdate, LeadCreate, LeadUpdate,AppointmentCreate, AppointmentUpdate
 import vapi_client
+from exports import csv_response
+from exports import csv_response, enforce_plan_limit, total_minutes_for_user
 
 router = APIRouter(tags=["user"])
 
@@ -80,6 +82,22 @@ async def list_my_calls(user: dict = Depends(get_current_user)):
     calls = await db.calls.find({"user_id": user["id"]}, {"_id": 0}).sort("started_at", -1).to_list(1000)
     return calls
 
+@router.get("/calls/export")
+async def export_my_calls(user: dict = Depends(get_current_user)):
+    from server import db
+    calls = await db.calls.find({"user_id": user["id"]}, {"_id": 0}).sort("started_at", -1).to_list(5000)
+    fields = ["started_at", "customer_name", "caller_number", "customer_email", "customer_address",
+              "status", "duration_seconds", "recording_url", "summary", "vapi_call_id"]
+    return csv_response(calls, fields, "calls.csv")
+
+
+@router.get("/appointments/export")
+async def export_my_appointments(user: dict = Depends(get_current_user)):
+    from server import db
+    items = await db.appointments.find({"user_id": user["id"]}, {"_id": 0}).sort("scheduled_at", -1).to_list(5000)
+    fields = ["created_at", "customer_name", "contact", "email", "address",
+              "service", "scheduled_at", "status", "notes", "source_call_id"]
+    return csv_response(items, fields, "appointments.csv")
 
 @router.get("/analytics")
 async def my_analytics(user: dict = Depends(get_current_user)):
@@ -226,3 +244,34 @@ async def log_web_call_end(call_id: str, duration_seconds: float = 0, user: dict
 async def get_vapi_public_key(user: dict = Depends(get_current_user)):
     key = os.environ.get("VAPI_PUBLIC_KEY", "")
     return {"public_key": key, "configured": bool(key)}
+
+
+
+
+
+
+# ----- Manual call log (testing / inbound from non-vapi) -----
+@router.post("/calls/manual")
+async def log_manual_call(agent_id: str, duration_seconds: float, status: str = "completed",
+                          caller_number: str = "", user: dict = Depends(get_current_user)):
+    from server import db
+    agent = await db.agents.find_one({"id": agent_id, "owner_id": user["id"]})
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    doc = {
+        "id": str(uuid.uuid4()),
+        "user_id": user["id"],
+        "agent_id": agent_id,
+        "vapi_call_id": None,
+        "caller_number": caller_number,
+        "status": status,
+        "duration_seconds": duration_seconds,
+        "recording_url": None,
+        "transcript": None,
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "ended_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.calls.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+

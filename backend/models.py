@@ -104,18 +104,64 @@ class AgentUpdate(BaseModel):
 
 
 # ----- Call -----
+# ----- Call -----
 class Call(BaseModel):
     id: str = Field(default_factory=_uid)
     user_id: str
     agent_id: str
     vapi_call_id: Optional[str] = None
-    caller_number: Optional[str] = None
+    customer_name: Optional[str] = None
+    caller_number: Optional[str] = None      # contact / phone
+    customer_email: Optional[str] = None
+    customer_address: Optional[str] = None
     status: str = "completed"  # completed | missed | failed | in-progress
     duration_seconds: float = 0.0
     recording_url: Optional[str] = None
     transcript: Optional[str] = None
+    summary: Optional[str] = None
     started_at: str = Field(default_factory=_now)
     ended_at: Optional[str] = None
+
+
+# ----- Appointment -----
+class Appointment(BaseModel):
+    id: str = Field(default_factory=_uid)
+    user_id: str
+    customer_name: str
+    contact: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    scheduled_at: Optional[str] = None        # ISO datetime
+    service: Optional[str] = None             # what the appointment is for
+    notes: str = ""
+    status: str = "pending"                   # pending | confirmed | cancelled | completed
+    source_call_id: Optional[str] = None
+    agent_id: Optional[str] = None
+    created_at: str = Field(default_factory=_now)
+
+
+class AppointmentCreate(BaseModel):
+    customer_name: str
+    contact: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    scheduled_at: Optional[str] = None
+    service: Optional[str] = None
+    notes: str = ""
+    status: str = "pending"
+    source_call_id: Optional[str] = None
+    agent_id: Optional[str] = None
+
+
+class AppointmentUpdate(BaseModel):
+    customer_name: Optional[str] = None
+    contact: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    scheduled_at: Optional[str] = None
+    service: Optional[str] = None
+    notes: Optional[str] = None
+    status: Optional[str] = None
 
 
 # ----- Lead -----

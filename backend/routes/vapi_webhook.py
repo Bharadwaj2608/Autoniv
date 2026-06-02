@@ -1,10 +1,43 @@
-"""Vapi webhook receiver — stores calls and auto-extracts leads/appointments."""
+"""Vapi webhook receiver — stores Call records and auto-creates Appointment entries.
+
+Vapi can be configured to extract structured info from the call via the
+`analysis.structuredData` field (a JSON object you define when creating the
+assistant). We look for these keys (case-insensitive):
+    name / customer_name
+    phone / contact / number
+    email
+    address
+    appointment_time / scheduled_at / appointment_at
+    service / reason
+    booking_status            (pending | confirmed | cancelled)
+
+If a `name` and `appointment_time` (or service) is present in structured data,
+an Appointment row is auto-created and linked back to the Call.
+
+Plan-limit enforcement:
+- After every completed call, the user's total minutes are recomputed.
+- If usage >= plan.monthly_minutes, the user is auto-blocked.
+- A separate `/api/vapi/eligibility` endpoint can be wired as a Vapi
+  pre-call hook to reject calls before they start.
+"""
 from fastapi import APIRouter, Request
 from datetime import datetime, timezone
 import uuid, re, logging
 
+from exports import enforce_plan_limit, total_minutes_for_user
+
 router = APIRouter(prefix="/vapi", tags=["vapi"])
 log = logging.getLogger(__name__)
+def _pick(d: dict, *keys):
+    """Case-insensitive key picker."""
+    if not isinstance(d, dict):
+        return None
+    lower = {k.lower(): v for k, v in d.items()}
+    for k in keys:
+        v = lower.get(k.lower())
+        if v not in (None, ""):
+            return v
+    return None
 
 # --- helpers ---
 
@@ -70,13 +103,13 @@ async def vapi_webhook(request: Request):
     call = msg.get("call") or {}
     assistant_id = call.get("assistantId") or msg.get("assistantId")
 
-    # Lookup local agent
+    # Lookup local agent by vapi_assistant_id
     agent = None
     if assistant_id:
         agent = await db.agents.find_one({"vapi_assistant_id": assistant_id})
 
     if not agent:
-        log.info("Vapi webhook ignored (no agent %s): %s", assistant_id, event_type)
+        log.info("Vapi webhook ignored (no matching agent for %s): %s", assistant_id, event_type)
         return {"ok": True, "ignored": True}
 
     vapi_call_id = call.get("id") or msg.get("callId")
@@ -89,17 +122,16 @@ async def vapi_webhook(request: Request):
             status = "missed"
         elif "progress" in s or "in-call" in s:
             status = "in-progress"
+        else:
+            status = "completed"
 
     duration = float(msg.get("durationSeconds") or call.get("duration") or 0.0)
     recording_url = msg.get("recordingUrl") or call.get("recordingUrl")
-    transcript = msg.get("transcript") or call.get("transcript") or ""
-
-    now_iso = datetime.now(timezone.utc).isoformat()
-    call_id = None
+    transcript = msg.get("transcript") or call.get("transcript")
 
     existing = await db.calls.find_one({"vapi_call_id": vapi_call_id}) if vapi_call_id else None
+    now_iso = datetime.now(timezone.utc).isoformat()
     if existing:
-        call_id = existing["id"]
         await db.calls.update_one(
             {"id": existing["id"]},
             {"$set": {
@@ -111,9 +143,8 @@ async def vapi_webhook(request: Request):
             }},
         )
     else:
-        call_id = str(uuid.uuid4())
         doc = {
-            "id": call_id,
+            "id": str(uuid.uuid4()),
             "user_id": agent["owner_id"],
             "agent_id": agent["id"],
             "vapi_call_id": vapi_call_id,
@@ -126,6 +157,7 @@ async def vapi_webhook(request: Request):
             "ended_at": now_iso if status != "in-progress" else None,
         }
         await db.calls.insert_one(doc)
+    return {"ok": True}
 
     # ---- Auto-extract data when call ends ----
     if event_type == "end-of-call-report" and transcript and status == "completed":
