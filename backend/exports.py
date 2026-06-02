@@ -63,4 +63,3 @@ async def enforce_plan_limit(db, user_id: str) -> dict:
         "over_limit": over,
         "is_blocked": over or bool(user.get("is_blocked")),
     }
-"
