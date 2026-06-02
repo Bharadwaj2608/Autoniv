@@ -35,7 +35,7 @@ async def health():
     return {"ok": True}
 
 
-# Mount sub-routers
+
 from routes.auth_routes import router as auth_router
 from routes.admin_routes import router as admin_router
 from routes.user_routes import router as user_router
