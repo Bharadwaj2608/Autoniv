@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { api, formatApiError } from "@/lib/api";
+import { api, API,formatApiError } from "@/lib/api";
 import { PageHeader, SectionCard, StatCard } from "@/components/Layout/PageBits";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,7 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, Edit3, CalendarCheck2 } from "lucide-react";
-
+import { Plus, Trash2, CalendarCheck2, Download } from "lucide-react";
 const STATUSES = ["pending", "confirmed", "completed", "cancelled"];
 const statusColor = {
   pending: "bg-amber-100 text-amber-700",
@@ -156,8 +155,14 @@ export default function UserAppointments() {
         title="Appointments"
         description="All appointments booked by your AI agents, with full customer details."
         action={
-          <Button onClick={openCreate} className="bg-slate-900 hover:bg-black" data-testid="create-appointment-button">
+          <Button
+              variant="outline"
+              onClick={() => window.open(`${API}/appointments/export`, "_blank")}
+              data-testid="export-appointments-csv"
+            >
+              <Download className="h-4 w-4 mr-2" /> Export CSV
             <Plus className="h-4 w-4 mr-2" /> New Appointment
+          
           </Button>
         }
       />

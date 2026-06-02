@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from datetime import datetime, timezone
 import uuid
 
-from auth import get_current_user
+from auth import get_current_user,require_active_user
 from models import AgentCreate, AgentUpdate, LeadCreate, LeadUpdate,AppointmentCreate, AppointmentUpdate
 import vapi_client
 from exports import csv_response
@@ -23,7 +23,7 @@ async def list_my_agents(user: dict = Depends(get_current_user)):
 
 
 @router.post("/agents")
-async def create_my_agent(payload: AgentCreate, user: dict = Depends(get_current_user)):
+async def create_my_agent(payload: AgentCreate, user: dict = Depends(require_active_user)):
     from server import db
     vapi_id = await vapi_client.create_assistant(
         name=payload.name,
@@ -46,6 +46,7 @@ async def create_my_agent(payload: AgentCreate, user: dict = Depends(get_current
     }
     await db.agents.insert_one(doc)
     doc.pop("_id", None)
+    await enforce_plan_limit(db, user["id"])
     return doc
 
 
@@ -142,7 +143,7 @@ async def list_my_leads(user: dict = Depends(get_current_user)):
 
 
 @router.post("/leads")
-async def create_my_lead(payload: LeadCreate, user: dict = Depends(get_current_user)):
+async def create_my_lead(payload: LeadCreate, user: dict = Depends(require_active_user)):
     from server import db
     doc = {
         "id": str(uuid.uuid4()),
@@ -189,7 +190,17 @@ async def my_billing(user: dict = Depends(get_current_user)):
     agg = await db.calls.aggregate(pipeline).to_list(1)
     minutes = round(agg[0]["minutes"], 2) if agg else 0.0
     return {"plan": plan, "minutes_used": minutes, "is_blocked": user.get("is_blocked", False)}
-
+    minutes = await total_minutes_for_user(db, user["id"])
+    limit = plan["monthly_minutes"] if plan else None
+    over_limit = bool(limit and minutes >= limit)
+    return {
+        "plan": plan,
+        "minutes_used": minutes,
+        "minutes_limit": limit,
+        "over_limit": over_limit,
+        "is_blocked": user.get("is_blocked", False),
+        "blocked_reason": user.get("blocked_reason"),
+    }
 
 @router.get("/plans")
 async def list_public_plans():
@@ -253,7 +264,7 @@ async def get_vapi_public_key(user: dict = Depends(get_current_user)):
 # ----- Manual call log (testing / inbound from non-vapi) -----
 @router.post("/calls/manual")
 async def log_manual_call(agent_id: str, duration_seconds: float, status: str = "completed",
-                          caller_number: str = "", user: dict = Depends(get_current_user)):
+                          caller_number: str = "", user: dict = Depends(require_active_user)):
     from server import db
     agent = await db.agents.find_one({"id": agent_id, "owner_id": user["id"]})
     if not agent:

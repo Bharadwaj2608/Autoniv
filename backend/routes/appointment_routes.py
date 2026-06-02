@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from datetime import datetime, timezone
 import uuid
 
-from auth import get_current_user
+from auth import get_current_user,require_active_user
 from models import AppointmentCreate, AppointmentUpdate
 
 router = APIRouter(tags=["appointments"])
@@ -19,7 +19,7 @@ async def list_appointments(user: dict = Depends(get_current_user)):
 
 
 @router.post("/appointments")
-async def create_appointment(payload: AppointmentCreate, user: dict = Depends(get_current_user)):
+async def create_appointment(payload: AppointmentCreate, user: dict = Depends(require_active_user)):
     from server import db
     doc = {
         "id": str(uuid.uuid4()),

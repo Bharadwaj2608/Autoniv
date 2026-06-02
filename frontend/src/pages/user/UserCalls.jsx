@@ -1,9 +1,11 @@
 import { useEffect, useState, useMemo } from "react";
-import { api } from "@/lib/api";
+import { api ,API} from "@/lib/api";
 import { PageHeader, SectionCard, StatCard } from "@/components/Layout/PageBits";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "../admin/AdminOverview";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
 
 export default function UserCalls() {
   const [calls, setCalls] = useState([]);
@@ -66,6 +68,15 @@ export default function UserCalls() {
         eyebrow="History"
         title="Call History"
         description="Every call handled by your AI voice agents — with full customer details captured."
+       action={
+          <Button
+            variant="outline"
+            onClick={() => window.open(`${API}/calls/export`, "_blank")}
+            data-testid="export-calls-csv"
+          >
+            <Download className="h-4 w-4 mr-2" /> Export CSV
+          </Button>
+        }
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

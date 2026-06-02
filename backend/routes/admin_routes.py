@@ -71,6 +71,12 @@ async def delete_user(user_id: str):
     res = await db.users.delete_one({"id": user_id, "role": {"$ne": "admin"}})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="User not found or is admin")
+    # If admin unblocked the user, clear blocked metadata
+    if update.get("is_blocked") is False:
+        await db.users.update_one(
+            {"id": user_id},
+            {"$unset": {"blocked_reason": "", "blocked_at": ""}},
+        )
     await db.calls.delete_many({"user_id": user_id})
     await db.leads.delete_many({"user_id": user_id})
     return {"ok": True}

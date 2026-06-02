@@ -157,8 +157,40 @@ async def vapi_webhook(request: Request):
             "ended_at": now_iso if status != "in-progress" else None,
         }
         await db.calls.insert_one(doc)
+    if status in ("completed", "failed"):
+        await enforce_plan_limit(db, agent["owner_id"])
+
     return {"ok": True}
 
+@router.get("/eligibility/{assistant_id}")
+async def eligibility(assistant_id: str):
+    """Pre-call check Vapi can call before connecting a customer.
+    Returns {"allowed": bool, "reason": str|null} so Vapi can refuse the call.
+    Wire this as an assistant hook or server-side pre-call gate.
+    """
+    from server import db
+    agent = await db.agents.find_one({"vapi_assistant_id": assistant_id})
+    if not agent:
+        return {"allowed": False, "reason": "Unknown assistant"}
+    if agent.get("is_disabled"):
+        return {"allowed": False, "reason": "Agent disabled"}
+    user = await db.users.find_one({"id": agent["owner_id"]})
+    if not user:
+        return {"allowed": False, "reason": "Owner missing"}
+    if user.get("is_blocked"):
+        return {"allowed": False, "reason": "Account blocked (plan limit or admin action)"}
+    minutes = await total_minutes_for_user(db, user["id"])
+    limit = None
+    if user.get("plan_id"):
+        plan = await db.plans.find_one({"id": user["plan_id"]})
+        limit = (plan or {}).get("monthly_minutes")
+    if limit and minutes >= limit:
+        # auto-block for future
+        await db.users.update_one({"id": user["id"]}, {"$set": {"is_blocked": True}})
+        return {"allowed": False, "reason": "Plan minute limit exceeded",
+                "minutes_used": minutes, "minutes_limit": limit}
+    return {"allowed": True, "minutes_used": minutes, "minutes_limit": limit}
+    
     # ---- Auto-extract data when call ends ----
     if event_type == "end-of-call-report" and transcript and status == "completed":
         agent_type = _detect_agent_type(

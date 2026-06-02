@@ -3,7 +3,7 @@ import { api } from "@/lib/api";
 import { PageHeader, SectionCard, StatCard } from "@/components/Layout/PageBits";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, AlertTriangle } from "lucide-react";
 
 export default function UserBilling() {
   const [billing, setBilling] = useState({ plan: null, minutes_used: 0, is_blocked: false });
@@ -21,6 +21,29 @@ export default function UserBilling() {
     <div className="p-6 md:p-8 lg:p-10 max-w-7xl">
       <PageHeader eyebrow="Billing" title="Plan & Usage" description="Track your current plan and minute consumption." />
 
+      {(billing.is_blocked || billing.over_limit) && (
+        <div
+          className={`mb-6 rounded-lg border p-4 flex items-start gap-3 ${
+            billing.is_blocked ? "border-red-200 bg-red-50" : "border-amber-200 bg-amber-50"
+          }`}
+          data-testid="billing-warning-banner"
+        >
+          <AlertTriangle className={`h-5 w-5 mt-0.5 ${billing.is_blocked ? "text-red-600" : "text-amber-600"}`} />
+          <div className="text-sm">
+            <p className="font-semibold text-slate-900">
+              {billing.is_blocked
+                ? "Your account is blocked"
+                : "You have reached your plan minute limit"}
+            </p>
+            <p className="text-slate-700 mt-1">
+              {billing.is_blocked
+                ? (billing.blocked_reason ||
+                   "New calls are paused. Contact your administrator to restore access or upgrade your plan.")
+                : "New calls are paused until you upgrade your plan or the billing cycle resets."}
+            </p>
+          </div>
+        </div>
+                )}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <div className="lg:col-span-2 bg-white border border-slate-200 rounded-lg p-6 shadow-sm">
           <p className="text-[11px] tracking-[0.2em] uppercase font-bold text-slate-500">Current plan</p>

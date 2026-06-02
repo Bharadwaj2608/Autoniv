@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api ,API} from "@/lib/api";
 import { PageHeader, SectionCard } from "@/components/Layout/PageBits";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "./AdminOverview";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
 
 export default function AdminCalls() {
   const [calls, setCalls] = useState([]);
@@ -19,7 +21,20 @@ export default function AdminCalls() {
 
   return (
     <div className="p-6 md:p-8 lg:p-10 max-w-7xl">
-      <PageHeader eyebrow="Telephony" title="Call Monitor" description="Every call recorded across the platform, synced from Vapi." />
+     <PageHeader
+        eyebrow="Telephony"
+        title="Call Monitor"
+        description="Every call recorded across the platform, synced from Vapi."
+        action={
+          <Button
+            variant="outline"
+            onClick={() => window.open(`${API}/admin/calls/export`, "_blank")}
+            data-testid="export-admin-calls-csv"
+          >
+            <Download className="h-4 w-4 mr-2" /> Export CSV
+          </Button>
+        }
+      />
       <SectionCard title={`${calls.length} calls`}>
         <Table>
           <TableHeader>
